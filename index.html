@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadlock Lab — Analysis & Resource Allocation Dashboard</title>
+<style>
+:root{--ink:#10282c;--ink2:#1b3d42;--paper:#f5f2ea;--card:#fffdf8;--line:#ddd6c5;--tx:#1d2a2c;--mut:#667476;--amber:#e8962a;
+--ok:#1f7a4d;--okbg:#dff2e6;--warn:#9a6200;--warnbg:#fdeccb;--bad:#a4262c;--badbg:#f9dcdc;--dead:#fff;--deadbg:#8c1d24;--inv:#4b3f9a;--invbg:#e6e2f8;--mono:Consolas,"Cascadia Mono",Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--paper:#0d1a1c;--card:#142528;--line:#2a4246;--tx:#e8efee;--mut:#97aaab;--okbg:#14382a;--warnbg:#413114;--badbg:#44181b;--invbg:#2a2655;--inv:#c1b9ff;--ok:#7fe0aa;--warn:#f3c56e;--bad:#ff9a9f}}
+*{box-sizing:border-box}html,body{margin:0}
+body{font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--paper);color:var(--tx);display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+nav{background:var(--ink);color:#d9e6e4;padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.brand{font:700 21px Georgia,serif;color:#fff;padding:0 10px 2px}.brand b{color:var(--amber)}
+.sub{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8fb0ad;padding:0 10px 18px}
+nav a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:8px;color:#cfe0de;text-decoration:none;cursor:pointer;font-size:14px}
+nav a i{font-style:normal;width:22px;height:22px;border-radius:6px;background:var(--ink2);display:grid;place-items:center;font:700 11px var(--mono);color:var(--amber)}
+nav a:hover{background:var(--ink2)}nav a.on{background:var(--amber);color:#1a1205;font-weight:600}nav a.on i{background:#1a1205;color:var(--amber)}
+.foot{margin-top:auto;font-size:11px;color:#79a09c;padding:10px}
+main{padding:30px 38px 60px;max-width:1180px}
+h1{font:700 30px Georgia,serif;margin:0 0 4px}h2{font:700 19px Georgia,serif;margin:26px 0 8px}h3{font-size:14px;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.lead{color:var(--mut);max-width:780px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+label{display:block;font-size:12px;color:var(--mut);font-weight:600;margin:0 0 4px}
+textarea,input,select{width:100%;font:14px var(--mono);padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--tx)}
+textarea{min-height:130px;resize:vertical}
+button{font:600 13px "Segoe UI",sans-serif;padding:9px 14px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--tx);border-color:var(--line)}button.alt:hover{border-color:var(--amber)}button.go{background:var(--amber);border-color:var(--amber);color:#1a1205}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:10px 0}
+table{border-collapse:collapse;font:13px var(--mono);margin:6px 0}th,td{border:1px solid var(--line);padding:4px 10px;text-align:center}th{background:var(--paper);font-weight:700}
+td.hl{background:var(--warnbg)}td.lo{background:var(--badbg)}.tbls{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}.tbls figure{margin:0}.tbls figcaption{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+.badge{display:inline-block;font:700 11px "Segoe UI";letter-spacing:.07em;padding:3px 10px;border-radius:99px;margin-right:6px;vertical-align:middle}
+.SAFE,.GRANTED,.NODEADLOCK{background:var(--okbg);color:var(--ok)}.UNSAFE,.DENIED_UNSAFE{background:var(--badbg);color:var(--bad)}.WAITING{background:var(--warnbg);color:var(--warn)}.DEADLOCK{background:var(--deadbg);color:var(--dead)}.INVALID{background:var(--invbg);color:var(--inv)}
+.note{border-left:4px solid var(--amber);background:var(--paper);padding:8px 12px;border-radius:0 8px 8px 0;margin:10px 0;font-size:13.5px}
+.res{margin-top:12px}.kv{font-family:var(--mono);font-size:13px}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.hero{background:linear-gradient(135deg,var(--ink),#1f5b57);color:#fff;border-radius:16px;padding:30px 32px;margin-bottom:6px}.hero h1{color:#fff;font-size:34px}.hero p{color:#cfe6e3;max-width:700px;margin:6px 0 16px}
+.tile{cursor:pointer;transition:.15s}.tile:hover{border-color:var(--amber);transform:translateY(-2px)}.tile b{font-family:Georgia,serif;font-size:16px}.tile p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.err li{margin:2px 0}.ok{color:var(--ok)}.small{font-size:12px;color:var(--mut)}
+@media(max-width:900px){body{grid-template-columns:1fr}nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap}.foot,.sub{display:none}main{padding:18px}.g2,.g3,.g4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<nav id="nav"></nav>
+<main id="main"></main>
+<script>/* core.js — algorithm layer. No DOM access: used by the dashboard and by the Node tests. */
+(function (root) {
+  'use strict';
+  const fmt = v => '[' + v.join(', ') + ']';
+  const le = (a, b) => a.every((x, i) => x <= b[i]);
+  const add = (a, b) => a.map((x, i) => x + b[i]);
+  const sub = (a, b) => a.map((x, i) => x - b[i]);
+  const zero = n => Array(n).fill(0);
+  const isZero = v => v.every(x => x === 0);
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const INT = /^[+-]?\d+$/;
+
+  /* ---------- parsing (text -> numbers, with precise messages) ---------- */
+  function parseMatrix(text, label) {
+    const errors = [], matrix = [];
+    const lines = String(text).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    lines.forEach((ln, i) => {
+      const row = [];
+      ln.split(/[\s,]+/).filter(Boolean).forEach((tok, j) => {
+        if (!INT.test(tok)) errors.push(`${label}[P${i}][R${j}] "${tok}" is not an integer.`);
+        else row.push(parseInt(tok, 10));
+      });
+      matrix.push(row);
+    });
+    return { matrix, errors };
+  }
+  function parseVector(text, label) {
+    const errors = [], vector = [];
+    String(text).split(/[\s,]+/).filter(Boolean).forEach((tok, j) => {
+      if (!INT.test(tok)) errors.push(`${label}[R${j}] "${tok}" is not an integer.`); else vector.push(parseInt(tok, 10));
+    });
+    return { vector, errors };
+  }
+
+  /* ---------- state validation ---------- */
+  function validateState(s) {
+    const e = [], { alloc, max, avail } = s;
+    const n = alloc.length, m = avail.length;
+    if (n === 0) e.push('At least one process is required.');
+    if (m === 0) e.push('Available vector is empty: at least one resource type is required.');
+    if (max.length !== n) e.push(`Maximum has ${max.length} rows but Allocation has ${n}.`);
+    alloc.forEach((r, i) => { if (r.length !== m) e.push(`Allocation row P${i} has ${r.length} values; expected ${m}.`); });
+    max.forEach((r, i) => { if (r.length !== m) e.push(`Maximum row P${i} has ${r.length} values; expected ${m}.`); });
+    if (e.length) return e;
+    alloc.forEach((r, i) => r.forEach((x, j) => { if (x < 0) e.push(`Allocation[P${i}][R${j}] is negative.`); }));
+    max.forEach((r, i) => r.forEach((x, j) => { if (x < 0) e.push(`Maximum[P${i}][R${j}] is negative.`); }));
+    avail.forEach((x, j) => { if (x < 0) e.push(`Available[R${j}] is negative.`); });
+    if (e.length) return e;
+    alloc.forEach((r, i) => r.forEach((x, j) => { if (x > max[i][j]) e.push(`Allocation exceeds Maximum for P${i}, R${j} (${x} > ${max[i][j]}).`); }));
+    return e;
+  }
+  const computeNeed = (max, alloc) => max.map((r, i) => sub(r, alloc[i]));
+  const totals = (alloc, avail) => alloc.reduce(add, zero(avail.length)).map((x, j) => x + avail[j]);
+
+  /* ---------- Banker's safety algorithm ---------- */
+  function safety(alloc, need, avail) {
+    const n = alloc.length, finish = Array(n).fill(false);
+    let work = avail.slice(); const steps = [], seq = [];
+    const initialBlocked = [];
+    need.forEach((nd, i) => { if (!le(nd, work)) initialBlocked.push({ proc: i, need: nd, short: nd.map((x, j) => x > work[j] ? j : -1).filter(j => j >= 0) }); });
+    for (;;) {
+      let pick = -1;
+      for (let i = 0; i < n; i++) if (!finish[i] && le(need[i], work)) { pick = i; break; }
+      if (pick < 0) break;
+      const before = work.slice(); work = add(work, alloc[pick]); finish[pick] = true; seq.push(pick);
+      steps.push({ proc: pick, need: need[pick], workBefore: before, workAfter: work.slice() });
+    }
+    const stuck = finish.map((f, i) => f ? -1 : i).filter(i => i >= 0);
+    return { safe: stuck.length === 0, sequence: seq, steps, stuck, finalWork: work, initialBlocked };
+  }
+
+  /* ---------- Banker's resource-request algorithm ---------- */
+  function request(state, pid, req) {
+    const orig = clone(state);
+    const out = (status, message, extra) => Object.assign({ status, message, original: orig }, extra || {});
+    const n = state.alloc.length, m = state.avail.length;
+    if (typeof pid === 'string' && !INT.test(pid.trim())) return out('INVALID', `Process id "${pid}" is not an integer.`);
+    pid = Number(pid);
+    if (!Number.isInteger(pid) || pid < 0 || pid >= n) return out('INVALID', `Process id ${pid} does not exist (valid: 0 to ${n - 1}).`);
+    if (!Array.isArray(req) || req.length !== m) return out('INVALID', `Request must contain ${m} values (one per resource type).`);
+    if (req.some(x => !Number.isInteger(x))) return out('INVALID', 'Request contains a non-integer value.');
+    if (req.some(x => x < 0)) return out('INVALID', 'Request contains a negative value.');
+    const need = computeNeed(state.max, state.alloc);
+    if (!le(req, need[pid])) return out('INVALID', `Request ${fmt(req)} exceeds P${pid}'s remaining Need ${fmt(need[pid])} (declared maximum would be exceeded).`);
+    if (!le(req, state.avail)) return out('WAITING', `Request ${fmt(req)} exceeds Available ${fmt(state.avail)}. P${pid} must wait; Allocation and Available are unchanged.`);
+    const sim = clone(state);
+    sim.avail = sub(sim.avail, req); sim.alloc[pid] = add(sim.alloc[pid], req);
+    const simNeed = computeNeed(sim.max, sim.alloc);
+    const s = safety(sim.alloc, simNeed, sim.avail);
+    if (!s.safe) return out('DENIED_UNSAFE', `Granting ${fmt(req)} to P${pid} leaves no safe sequence. Request denied; the original state is restored.`, { sim, simNeed, safety: s });
+    return out('GRANTED', `Request granted. State stays safe with sequence <${s.sequence.map(i => 'P' + i).join(', ')}>.`, { sim, simNeed, safety: s, newState: sim });
+  }
+
+  /* ---------- Detection (multiple-instance; Allocation/Request/Available) ---------- */
+  function detect(alloc, req, avail) {
+    const n = alloc.length; let work = avail.slice();
+    const finish = alloc.map(r => isZero(r)); // a process holding nothing cannot take part in a deadlock
+    const idle = finish.map((f, i) => f ? i : -1).filter(i => i >= 0);
+    const steps = [], order = [];
+    for (;;) {
+      let pick = -1;
+      for (let i = 0; i < n; i++) if (!finish[i] && le(req[i], work)) { pick = i; break; }
+      if (pick < 0) break;
+      const before = work.slice(); work = add(work, alloc[pick]); finish[pick] = true; order.push(pick);
+      steps.push({ proc: pick, request: req[pick], workBefore: before, workAfter: work.slice() });
+    }
+    const deadlocked = finish.map((f, i) => f ? -1 : i).filter(i => i >= 0);
+    return { deadlock: deadlocked.length > 0, deadlocked, steps, order, finalWork: work, idle };
+  }
+  function validateDetection(s) {
+    const e = [], { alloc, req, avail } = s, n = alloc.length, m = avail.length;
+    if (req.length !== n) e.push(`Request matrix has ${req.length} rows but Allocation has ${n}.`);
+    [['Allocation', alloc], ['Request', req]].forEach(([nm, M]) => M.forEach((r, i) => {
+      if (r.length !== m) e.push(`${nm} row P${i} has ${r.length} values; expected ${m}.`);
+      r.forEach((x, j) => { if (x < 0) e.push(`${nm}[P${i}][R${j}] is negative.`); });
+    }));
+    avail.forEach((x, j) => { if (x < 0) e.push(`Available[R${j}] is negative.`); });
+    return e;
+  }
+
+  /* ---------- Recovery: process termination ---------- */
+  function terminate(s, victim) {
+    const released = s.alloc[victim].slice();
+    const alloc = clone(s.alloc), req = clone(s.req);
+    alloc[victim] = zero(released.length); req[victim] = zero(released.length);
+    return { state: { alloc, req, avail: add(s.avail, released) }, released };
+  }
+  function victimOptions(s) {
+    const d = detect(s.alloc, s.req, s.avail);
+    return d.deadlocked.map(v => {
+      const t = terminate(s, v), after = detect(t.state.alloc, t.state.req, t.state.avail);
+      return { victim: v, released: t.released, units: t.released.reduce((a, b) => a + b, 0), resolves: !after.deadlock };
+    });
+  }
+  function bestVictim(s) {
+    const ok = victimOptions(s).filter(o => o.resolves).sort((a, b) => a.units - b.units || a.victim - b.victim);
+    return ok.length ? ok[0].victim : null;
+  }
+
+  /* ---------- Prevention ---------- */
+  // Policy 1: resource ordering R0 < R1 < ... ; holding type x then requesting a type y < x breaks the order.
+  function orderingViolations(alloc, req) {
+    const v = [];
+    alloc.forEach((a, i) => {
+      const heldMax = Math.max(-1, ...a.map((x, j) => x > 0 ? j : -1));
+      req[i].forEach((r, j) => { if (r > 0 && j < heldMax) v.push({ proc: i, holds: heldMax, wants: j }); });
+    });
+    return v;
+  }
+  function applyOrdering(s) {
+    const violations = orderingViolations(s.alloc, s.req);
+    const alloc = clone(s.alloc), req = clone(s.req); let avail = s.avail.slice(); const rolledBack = [];
+    new Set(violations.map(x => x.proc)).forEach(p => { avail = add(avail, alloc[p]); rolledBack.push({ proc: p, released: alloc[p].slice() }); alloc[p] = zero(s.avail.length); req[p] = zero(s.avail.length); });
+    return { violations, rolledBack, state: { alloc, req, avail } };
+  }
+  // Policy 2: all-or-nothing — a process starts only if its whole Maximum can be reserved.
+  function allOrNothing(max, total) {
+    let free = total.slice(); const started = [], waiting = [];
+    max.forEach((mx, i) => { if (le(mx, free)) { free = sub(free, mx); started.push(i); } else waiting.push(i); });
+    return { started, waiting, free };
+  }
+
+  const api = { fmt, le, add, sub, zero, isZero, clone, parseMatrix, parseVector, validateState, validateDetection, computeNeed, totals, safety, request, detect, terminate, victimOptions, bestVictim, orderingViolations, applyOrdering, allOrNothing };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Core = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>/* presets.js — the group's own test data (shared by dashboard and tests). */
+(function (root) {
+  const P = {
+    // TC1-TC3, TC6: 5 processes, 4 resource types (R0..R3), totals [9,11,5,7]
+    avoidance: {
+      alloc: [[1,2,0,1],[2,1,0,1],[2,1,0,2],[0,2,1,2],[2,2,1,0]],
+      max:   [[2,4,1,3],[4,2,1,3],[2,2,2,3],[2,2,1,4],[2,3,1,1]],
+      avail: [2,3,3,1]
+    },
+    tc2: { pid: 0, req: [0,0,0,2] },
+    tc3: { pid: 3, req: [2,0,0,1] },
+    grant: { pid: 2, req: [0,1,2,0] },
+    // TC4/TC5: multiple-instance detection system, 5 processes, 3 types (R0 x4, R1 x4, R2 x3)
+    deadlock: {
+      alloc: [[0,1,1],[2,0,0],[1,1,0],[1,0,2],[0,1,0]],
+      req:   [[0,1,0],[0,0,2],[2,0,0],[1,0,0],[0,0,1]],
+      avail: [0,1,0]
+    },
+    // cycle in the wait relationship but NO deadlock (R0 x3, R1 x2)
+    cycleOnly: {
+      alloc: [[1,0],[0,1],[1,0]],
+      req:   [[0,1],[2,0],[0,0]],
+      avail: [1,0]
+    },
+    names: ['R0','R1','R2','R3','R4','R5']
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = P; else root.Presets = P;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+const $ = s => document.querySelector(s), C = Core, P = Presets, F = C.fmt;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mtxt = m => m.map(r => r.join(' ')).join('\n');
+const RN = n => Array.from({length:n}, (_, j) => 'R' + j);
+const LABEL = {SAFE:'SAFE',UNSAFE:'UNSAFE',GRANTED:'GRANTED',WAITING:'WAITING / DEFERRED',DENIED_UNSAFE:'DENIED — UNSAFE',DEADLOCK:'DEADLOCK DETECTED',NODEADLOCK:'NO DEADLOCK',INVALID:'INVALID INPUT'};
+const badge = k => `<span class="badge ${k}">${LABEL[k] || k}</span>`;
+const seq = a => '&lt;' + a.map(i => 'P' + i).join(', ') + '&gt;';
+function tbl(title, M, cols, hl) {
+  return `<figure><figcaption>${title}</figcaption><table><tr><th></th>${cols.map(c => `<th>${c}</th>`).join('')}</tr>` +
+    M.map((r, i) => `<tr><th>P${i}</th>${r.map((x, j) => `<td class="${hl && hl(i, j, x) || ''}">${x}</td>`).join('')}</tr>`).join('') + '</table></figure>';
+}
+const vtbl = (title, v) => `<figure><figcaption>${title}</figcaption><table><tr>${RN(v.length).map(c => `<th>${c}</th>`).join('')}</tr><tr>${v.map(x => `<td>${x}</td>`).join('')}</tr></table></figure>`;
+function trace(steps, kind, w0) {
+  if (!steps.length) return `<p class="kv">Initial Work = ${F(w0)} — no process can finish.</p>`;
+  return `<table><tr><th>#</th><th>Process</th><th>${kind} ≤ Work</th><th>Work before</th><th>Work after (+ Allocation)</th></tr>` +
+    steps.map((s, i) => `<tr><td>${i + 1}</td><td>P${s.proc}</td><td>${F(s.need || s.request)} ≤ ${F(s.workBefore)} ✔</td><td>${F(s.workBefore)}</td><td>${F(s.workAfter)}</td></tr>`).join('') + '</table>';
+}
+const errs = l => `<div class="res">${badge('INVALID')}<ul class="err">${l.map(e => `<li>${esc(e)}</li>`).join('')}</ul><div class="note">No calculation was run and the stored state was not changed.</div></div>`;
+
+/* ---------------- shared model ---------------- */
+const M = { av: C.clone(P.avoidance), det: C.clone(P.deadlock) };
+const pages = {};
+const NAV = [['overview','⌂','Overview'],['avoidance','A','Deadlock Avoidance'],['detection','D','Deadlock Detection'],['recovery','R','Deadlock Recovery'],['prevention','P','Deadlock Prevention'],['concepts','?','Concepts'],['lab','✓','Scenario Lab (TC1–TC6)']];
+function route() {
+  const id = (location.hash.slice(1) || 'overview'); const pg = pages[id] ? id : 'overview';
+  $('#nav').innerHTML = `<div class="brand">Deadlock<b>Lab</b></div><div class="sub">OS · IA Activity 2</div>` +
+    NAV.map(([k, ic, t]) => `<a class="${k === pg ? 'on' : ''}" href="#${k}"><i>${ic}</i>${t}</a>`).join('') + `<div class="foot">Banker’s · Detection · Recovery · Prevention</div>`;
+  $('#main').innerHTML = pages[pg](); if (pages[pg].after) pages[pg].after(); window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+const go = id => { location.hash = id; };
+
+/* ---------------- Overview ---------------- */
+pages.overview = () => `<div class="hero"><h1>Deadlock Analysis &amp; Resource Allocation Dashboard</h1>
+<p>An interactive lab for the four ways an operating system handles deadlock — avoid it, detect it, recover from it, or prevent it — with every Work-vector update shown.</p>
+<div class="row"><button class="go" onclick="go('avoidance')">Start with Banker’s Algorithm</button><button class="alt" style="color:#fff;border-color:#6aa7a1" onclick="go('lab')">Run all six test cases</button></div></div>
+<div class="legend">${['SAFE','UNSAFE','WAITING','DEADLOCK','INVALID'].map(badge).join('')}</div>
+<p class="small">Five distinct outcomes: SAFE = a safe sequence exists · UNSAFE = none exists (deadlock possible, not certain) · WAITING = valid request above Available · DEADLOCK = processes actually blocked · INVALID = input breaks the model.</p>
+<div class="grid g3">${[['avoidance','Deadlock Avoidance','Need matrix, safety algorithm, Work updates, request simulation.'],['detection','Deadlock Detection','Allocation/Request matrices for multiple-instance resources. Finds blocked processes.'],['recovery','Deadlock Recovery','Choose a victim, release its resources, re-run detection, compare.'],['prevention','Deadlock Prevention','Resource ordering (no circular wait) and all-or-nothing (no hold-and-wait).'],['concepts','Concepts','Four conditions, safe vs unsafe vs deadlocked, waiting vs invalid.'],['lab','Scenario Lab','Executes TC1–TC6 live with the same algorithm code.']].map(([k, t, d]) => `<div class="card tile" onclick="go('${k}')"><b>${t}</b><p>${d}</p></div>`).join('')}</div>
+<div class="note"><b>Avoidance ≠ detection.</b> Banker’s Algorithm decides whether granting a request keeps the system safe; it never finds an existing deadlock. Detection is a separate algorithm on separate inputs (Request matrix instead of Maximum).</div>`;
+
+/* ---------------- Avoidance ---------------- */
+function readAv() {
+  const a = C.parseMatrix($('#al').value, 'Allocation'), m = C.parseMatrix($('#mx').value, 'Maximum'), v = C.parseVector($('#av').value, 'Available');
+  const e = [...a.errors, ...m.errors, ...v.errors]; const st = { alloc: a.matrix, max: m.matrix, avail: v.vector };
+  return { st, e: e.length ? e : C.validateState(st) };
+}
+pages.avoidance = () => `<h1>Deadlock Avoidance — Banker’s Algorithm</h1><p class="lead">Enter one process per line, one column per resource type. Need = Maximum − Allocation is computed automatically.</p>
+<div class="card"><div class="row"><button class="alt" onclick="loadAv()">Load group state (TC1)</button><span class="small">Processes and resource types are taken from the matrix size.</span></div>
+<div class="grid g3"><div><label>Allocation matrix</label><textarea id="al"></textarea></div><div><label>Maximum matrix</label><textarea id="mx"></textarea></div><div><label>Available vector</label><input id="av"><div class="row"><button class="go" onclick="runAv()">Check safety</button></div></div></div><div id="avOut"></div></div>
+<div class="card"><h3 style="margin-top:0">Resource request</h3><div class="grid g3"><div><label>Process id (0-based)</label><input id="rp" value="3"></div><div><label>Request vector</label><input id="rq" value="2 0 0 1"></div>
+<div class="row"><button class="go" onclick="runReq()">Submit request</button></div></div>
+<div class="row"><button class="alt" onclick="ex('exceeds')">Example: exceeds Available (TC2)</button><button class="alt" onclick="ex('unsafe')">Example: unsafe (TC3)</button><button class="alt" onclick="ex('safe')">Example: safe grant</button></div><div id="rqOut"></div></div>`;
+pages.avoidance.after = () => { loadAv(true); runAv(); };
+function loadAv(quiet) { M.av = C.clone(P.avoidance); $('#al').value = mtxt(M.av.alloc); $('#mx').value = mtxt(M.av.max); $('#av').value = M.av.avail.join(' '); if (!quiet) runAv(); }
+function runAv() {
+  const { st, e } = readAv(); if (e.length) { $('#avOut').innerHTML = errs(e); return; } M.av = st;
+  const need = C.computeNeed(st.max, st.alloc), s = C.safety(st.alloc, need, st.avail), cols = RN(st.avail.length), tot = C.totals(st.alloc, st.avail);
+  $('#avOut').innerHTML = `<div class="tbls">${tbl('Allocation', st.alloc, cols)}${tbl('Maximum', st.max, cols)}${tbl('Need = Max − Alloc', need, cols)}${vtbl('Available', st.avail)}${vtbl('Total = Σ Alloc + Avail', tot)}</div>
+  <h3>Safety algorithm — initial Work = Available = ${F(st.avail)}</h3>${s.initialBlocked.length ? `<p class="small">Cannot start yet: ${s.initialBlocked.map(b => 'P' + b.proc + ' (short on ' + b.short.map(j => 'R' + j).join(', ') + ')').join('; ')}.</p>` : ''}
+  ${trace(s.steps, 'Need', st.avail)}
+  <div class="res">${s.safe ? badge('SAFE') + `Safe sequence ${seq(s.sequence)}. Final Work ${F(s.finalWork)} equals total resources, so nothing was lost in the calculation.` : badge('UNSAFE') + `No complete safe sequence. Blocked: ${s.stuck.map(i => 'P' + i).join(', ')}. Unsafe means deadlock is <i>possible</i>, not that it has happened.`}</div>`;
+}
+function ex(k) { const t = { exceeds: [P.tc2.pid, P.tc2.req], unsafe: [P.tc3.pid, P.tc3.req], safe: [P.grant.pid, P.grant.req] }[k]; $('#rp').value = t[0]; $('#rq').value = t[1].join(' '); runReq(); }
+function runReq() {
+  const { st, e } = readAv(); if (e.length) { $('#rqOut').innerHTML = errs(e); return; }
+  const rv = C.parseVector($('#rq').value, 'Request'); if (rv.errors.length) { $('#rqOut').innerHTML = errs(rv.errors); return; }
+  const r = C.request(st, $('#rp').value, rv.vector), cols = RN(st.avail.length);
+  let h = `<div class="res">${badge(r.status)}${esc(r.message)}</div>`;
+  if (r.sim) h += `<h3>Tentative allocation (temporary)</h3><div class="tbls">${tbl('Allocation′', r.sim.alloc, cols, (i, j) => i == $('#rp').value && rv.vector[j] ? 'hl' : '')}${tbl('Need′', r.simNeed, cols)}${vtbl('Available′', r.sim.avail)}</div>
+    <h3>Safety algorithm on the simulated state — Work = ${F(r.sim.avail)}</h3>${trace(r.safety.steps, 'Need', r.sim.avail)}
+    ${r.safety.safe ? badge('SAFE') + 'Safe sequence ' + seq(r.safety.sequence) : badge('UNSAFE') + 'No safe sequence — blocked: ' + r.safety.stuck.map(i => 'P' + i).join(', ') + '. Unsafe ≠ deadlocked: no process is waiting on another yet.'}`;
+  h += r.status === 'GRANTED' ? `<div class="row"><button class="alt" onclick='applyReq(${JSON.stringify(r.newState)})'>Apply granted request to the matrices</button></div>`
+    : `<div class="note"><b>Original state retained.</b> Allocation and Available are exactly as before:</div><div class="tbls">${tbl('Allocation (unchanged)', r.original.alloc, cols)}${vtbl('Available (unchanged)', r.original.avail)}</div>`;
+  $('#rqOut').innerHTML = h;
+}
+function applyReq(ns) { $('#al').value = mtxt(ns.alloc); $('#av').value = ns.avail.join(' '); runAv(); $('#rqOut').innerHTML = `<div class="note">Request applied; matrices updated.</div>`; }
+
+/* ---------------- Detection ---------------- */
+function readDet() {
+  const a = C.parseMatrix($('#da').value, 'Allocation'), r = C.parseMatrix($('#dr').value, 'Request'), v = C.parseVector($('#dv').value, 'Available');
+  const st = { alloc: a.matrix, req: r.matrix, avail: v.vector }; const e = [...a.errors, ...r.errors, ...v.errors]; return { st, e: e.length ? e : C.validateDetection(st) };
+}
+pages.detection = () => `<h1>Deadlock Detection</h1><p class="lead">Model: <b>multiple-instance</b> resource types. A graph cycle alone does not prove deadlock when a type has several instances, so detection runs the Allocation / Request / Available matrix algorithm. No Maximum matrix is involved.</p>
+<div class="card"><div class="row"><button class="alt" onclick="loadDet('deadlock')">Load deadlocked system (TC4)</button><button class="alt" onclick="loadDet('cycleOnly')">Load cycle without deadlock</button></div>
+<div class="grid g3"><div><label>Allocation matrix</label><textarea id="da"></textarea></div><div><label>Request matrix (what each process waits for)</label><textarea id="dr"></textarea></div><div><label>Available vector</label><input id="dv"><div class="row"><button class="go" onclick="runDet()">Detect deadlock</button></div></div></div><div id="dOut"></div></div>`;
+pages.detection.after = () => { loadDet(null, true); runDet(); };
+function loadDet(k, quiet) { if (k) M.det = C.clone(P[k]); $('#da').value = mtxt(M.det.alloc); $('#dr').value = mtxt(M.det.req); $('#dv').value = M.det.avail.join(' '); if (!quiet) runDet(); }
+function relations(s) {
+  const L = []; s.alloc.forEach((a, i) => { const h = a.map((x, j) => x ? `${x}×R${j}` : '').filter(Boolean), w = s.req[i].map((x, j) => x ? `${x}×R${j}` : '').filter(Boolean);
+    L.push(`<li><b>P${i}</b> holds ${h.join(', ') || 'nothing'}; ${w.length ? 'waits for ' + w.join(', ') : 'is not waiting'}.</li>`); }); return `<ul class="kv">${L.join('')}</ul>`;
+}
+function runDet() {
+  const { st, e } = readDet(); if (e.length) { $('#dOut').innerHTML = errs(e); return; } M.det = st;
+  const d = C.detect(st.alloc, st.req, st.avail), cols = RN(st.avail.length), tot = C.totals(st.alloc, st.avail);
+  $('#dOut').innerHTML = `<div class="tbls">${tbl('Allocation', st.alloc, cols)}${tbl('Request', st.req, cols)}${vtbl('Available', st.avail)}${vtbl('Total instances', tot)}</div>
+  <h3>Resource-allocation relationships</h3>${relations(st)}
+  <h3>Detection trace — initial Work = Available = ${F(st.avail)}</h3>${d.idle.length ? `<p class="small">Holding nothing (cannot be deadlocked): ${d.idle.map(i => 'P' + i).join(', ')}.</p>` : ''}${trace(d.steps, 'Request', st.avail)}
+  <div class="res">${d.deadlock ? badge('DEADLOCK') + `Deadlocked processes: <b>${d.deadlocked.map(i => 'P' + i).join(', ')}</b>. Each waits for resources that only another process in this set could release; Work stays at ${F(d.finalWork)} and no one else can finish.` : badge('NODEADLOCK') + `Every process can complete in order ${seq(d.order)}. Any cycle in the wait relationship is only a <i>potential</i> circular wait, because spare instances get released along the way.`}</div>`;
+}
+
+/* ---------------- Recovery ---------------- */
+pages.recovery = () => `<h1>Deadlock Recovery</h1><p class="lead">Method: <b>process termination</b>. The victim’s held resources return to Available, then detection is re-run on the new state.</p>
+<div class="card"><div class="row"><button class="alt" onclick="M.det=C.clone(P.deadlock);pages.recovery.after()">Reload TC4 deadlocked system</button></div><div id="rOut"></div></div>`;
+pages.recovery.after = () => {
+  const s = M.det, d = C.detect(s.alloc, s.req, s.avail), cols = RN(s.avail.length);
+  if (!d.deadlock) { $('#rOut').innerHTML = `<div class="res">${badge('NODEADLOCK')}The current system (from the Detection module) is not deadlocked, so nothing needs recovery.</div>`; return; }
+  const vo = C.victimOptions(s), best = C.bestVictim(s);
+  $('#rOut').innerHTML = `<h3>Before recovery</h3><div class="tbls">${tbl('Allocation', s.alloc, cols)}${tbl('Request', s.req, cols)}${vtbl('Available', s.avail)}</div>${badge('DEADLOCK')}Deadlocked: <b>${d.deadlocked.map(i => 'P' + i).join(', ')}</b>
+  <h3>Victim candidates</h3><table><tr><th>Victim</th><th>Releases</th><th>Units</th><th>Deadlock after?</th></tr>${vo.map(o => `<tr><td>P${o.victim}</td><td>${F(o.released)}</td><td>${o.units}</td><td>${o.resolves ? 'resolved' : 'persists'}</td></tr>`).join('')}</table>
+  <div class="row"><div style="width:160px"><label>Victim (suggested: P${best})</label><select id="vic">${d.deadlocked.map(v => `<option value="${v}" ${v === best ? 'selected' : ''}>P${v}</option>`).join('')}</select></div><button class="go" onclick="doRec()">Terminate victim &amp; re-run detection</button></div><div id="rRes"></div>`;
+};
+function doRec() {
+  const s = M.det, v = +$('#vic').value, t = C.terminate(s, v), a = C.detect(t.state.alloc, t.state.req, t.state.avail), cols = RN(s.avail.length);
+  $('#rRes').innerHTML = `<div class="note"><b>P${v} terminated.</b> Released ${F(t.released)}; Available ${F(s.avail)} → ${F(t.state.avail)}. The victim’s work is lost and it must be restarted.</div>
+  <div class="tbls">${tbl('Allocation after', t.state.alloc, cols)}${tbl('Request after', t.state.req, cols)}${vtbl('Available after', t.state.avail)}</div>
+  <h3>Re-run detection</h3>${trace(a.steps, 'Request', t.state.avail)}
+  <div class="res">${a.deadlock ? badge('DEADLOCK') + 'Still deadlocked: ' + a.deadlocked.map(i => 'P' + i).join(', ') + ' — choose another victim.' : badge('NODEADLOCK') + `All remaining processes finish in order ${seq(a.order)}.`}</div>
+  <h3>Before vs after</h3><table><tr><th></th><th>Before</th><th>After</th></tr><tr><th>Status</th><td>DEADLOCK {${C.detect(s.alloc, s.req, s.avail).deadlocked.map(i => 'P' + i)}}</td><td>${a.deadlock ? 'DEADLOCK' : 'NO DEADLOCK'}</td></tr><tr><th>Available</th><td>${F(s.avail)}</td><td>${F(t.state.avail)}</td></tr></table>`;
+}
+
+/* ---------------- Prevention ---------------- */
+pages.prevention = () => {
+  const s = M.det, d0 = C.detect(s.alloc, s.req, s.avail), n = s.avail.length, cols = RN(n);
+  const ap = C.applyOrdering(s), d1 = C.detect(ap.state.alloc, ap.state.req, ap.state.avail);
+  const mx = M.av.max, tot = C.totals(M.av.alloc, M.av.avail), ao = C.allOrNothing(mx, tot), running = M.av.alloc.filter(r => !C.isZero(r)).length;
+  const idle = ao.started.reduce((a, i) => a + mx[i].reduce((x, y) => x + y, 0) - (M.av.alloc[i].reduce((x, y) => x + y, 0)), 0);
+  return `<h1>Deadlock Prevention</h1><p class="lead">Prevention removes one of the four necessary conditions by policy, so deadlock can never form.</p>
+<div class="card"><h2 style="margin-top:0">Policy 1 — Resource ordering (removes <u>circular wait</u>)</h2><p>Order: ${cols.join(' &lt; ')}. A process holding type X may only request types ≥ X. Applied to the Detection-module system:</p>
+<div class="tbls">${tbl('Allocation', s.alloc, cols)}${tbl('Request', s.req, cols)}</div>
+<p><b>Original policy:</b> ${d0.deadlock ? badge('DEADLOCK') + '{' + d0.deadlocked.map(i => 'P' + i).join(', ') + '}' : badge('NODEADLOCK')}</p>
+<p><b>Out-of-order requests rejected:</b> ${ap.violations.length ? ap.violations.map(v => `P${v.proc} holds R${v.holds} but requests R${v.wants}`).join('; ') : 'none'}. ${ap.rolledBack.length ? 'Those processes release ' + ap.rolledBack.map(r => `P${r.proc} ${F(r.released)}`).join(', ') + ' and re-acquire in order.' : ''}</p>
+<p><b>Modified policy:</b> ${d1.deadlock ? badge('DEADLOCK') : badge('NODEADLOCK') + 'order ' + seq(d1.order)} — every remaining wait goes from a lower to a higher (or equal) type, so no cycle can close.</p>
+<div class="note"><b>Trade-off:</b> processes may have to acquire resources earlier than needed, or release and re-acquire them, wasting work; the global order may not match natural usage.</div></div>
+<div class="card"><h2 style="margin-top:0">Policy 2 — All-or-nothing (removes <u>hold and wait</u>)</h2><p>Each process must reserve its entire Maximum before starting. Using the Avoidance-module Maximum matrix and total ${F(tot)}:</p>
+<p>Started: <b>${ao.started.map(i => 'P' + i).join(', ') || 'none'}</b> · Must wait: <b>${ao.waiting.map(i => 'P' + i).join(', ') || 'none'}</b> · Free after reservation: ${F(ao.free)}</p>
+<table><tr><th></th><th>Banker’s avoidance (current)</th><th>All-or-nothing</th></tr><tr><th>Processes active</th><td>${running} of ${mx.length}</td><td>${ao.started.length} of ${mx.length}</td></tr><tr><th>Reserved but idle units</th><td>0 (only allocated units)</td><td>${idle}</td></tr><tr><th>Deadlock possible?</th><td>No (kept safe)</td><td>No (no hold-and-wait)</td></tr></table>
+<div class="note"><b>Trade-off:</b> lower concurrency and utilisation (reserved resources sit idle), and processes with big Maximum claims may starve.</div></div>`;
+};
+
+/* ---------------- Concepts ---------------- */
+pages.concepts = () => `<h1>Concepts</h1><p class="lead">The vocabulary the dashboard uses, and the distinctions that must never be blurred.</p>
+<div class="grid g2"><div class="card"><h3 style="margin-top:0">Four necessary conditions</h3><ol><li><b>Mutual exclusion</b> — a unit is used by one process at a time.</li><li><b>Hold and wait</b> — a process holds some resources while waiting for more.</li><li><b>No preemption</b> — resources cannot be forcibly taken.</li><li><b>Circular wait</b> — a closed chain of processes each waits for the next.</li></ol><p class="small">All four must hold together; breaking one prevents deadlock.</p></div>
+<div class="card"><h3 style="margin-top:0">Four strategies</h3><p><b>Prevention</b> — design the policy so one condition is impossible.<br><b>Avoidance</b> — grant a request only if the state stays safe (Banker’s).<br><b>Detection</b> — allow deadlock, find it with Allocation/Request/Available.<br><b>Recovery</b> — break a found deadlock by terminating or preempting.</p></div></div>
+<div class="card"><h3 style="margin-top:0">Status vocabulary</h3><table style="text-align:left"><tr><th>Status</th><th>Meaning</th></tr>
+<tr><td>${badge('SAFE')}</td><td style="text-align:left">A safe sequence exists; every process can finish.</td></tr>
+<tr><td>${badge('UNSAFE')}</td><td style="text-align:left">No safe sequence; deadlock is possible but not certain. Nobody is necessarily blocked.</td></tr>
+<tr><td>${badge('DEADLOCK')}</td><td style="text-align:left">A set of processes is actually blocked on each other (found by detection).</td></tr>
+<tr><td>${badge('WAITING')}</td><td style="text-align:left">Valid request (≤ Need) larger than current Available; retry after resources are released. Not invalid.</td></tr>
+<tr><td>${badge('INVALID')}</td><td style="text-align:left">Input breaks the model: unknown process, negative or non-integer value, request above Need, Allocation above Maximum, wrong matrix shape.</td></tr></table></div>
+<div class="note"><b>Banker’s steps.</b> Request ≤ Need? (else invalid) → Request ≤ Available? (else wait) → pretend to allocate → run safety → safe: grant; unsafe: deny and restore.</div>`;
+
+/* ---------------- Scenario Lab ---------------- */
+pages.lab = () => {
+  const A = C.clone(P.avoidance), need = C.computeNeed(A.max, A.alloc), cols = RN(4);
+  const s1 = C.safety(A.alloc, need, A.avail), r2 = C.request(A, P.tc2.pid, P.tc2.req), r3 = C.request(A, P.tc3.pid, P.tc3.req);
+  const D = P.deadlock, d = C.detect(D.alloc, D.req, D.avail), bv = C.bestVictim(D), t = C.terminate(D, bv), da = C.detect(t.state.alloc, t.state.req, t.state.avail);
+  const ap = C.applyOrdering(D), dp = C.detect(ap.state.alloc, ap.state.req, ap.state.avail), ao = C.allOrNothing(A.max, C.totals(A.alloc, A.avail));
+  const Zs = { alloc: [[0,0],[1,1]], max: [[0,0],[1,1]], avail: [0,0] }, Zu = C.clone(A); Zu.alloc[4] = [2,3,1,1];
+  const bad = C.clone(A); bad.alloc[0][0] = 3;
+  const six = [['Zero Available + request P0 [0,0,0,1]', C.request({ ...A, avail: [0,0,0,0] }, 0, [0,0,0,1]), 'valid boundary'],
+    ['Zero Available, zero-Need processes (safety)', { status: C.safety(Zs.alloc, C.computeNeed(Zs.max, Zs.alloc), Zs.avail).safe ? 'SAFE' : 'UNSAFE', message: 'Safe sequence exists although Available = [0, 0].' }, 'valid boundary'],
+    ['Zero request P1 [0,0] in that state', C.request(Zs, 1, [0, 0]), 'valid boundary'],
+    ['Zero-Need process P4 requests [1,0,0,0]', C.request(Zu, 4, [1,0,0,0]), 'invalid'],
+    ['Invalid process id 9', C.request(A, 9, [0,0,0,0]), 'invalid'], ['Negative request [−1,0,0,0]', C.request(A, 1, [-1,0,0,0]), 'invalid'],
+    ['Request above Need: P1 [3,0,0,0]', C.request(A, 1, [3,0,0,0]), 'invalid'], ['Allocation above Maximum', { status: 'INVALID', message: C.validateState(bad)[0] }, 'invalid'],
+    ['Non-numeric matrix entry "x"', { status: 'INVALID', message: C.parseMatrix('1 2 x', 'Allocation').errors[0] }, 'invalid'],
+    ['Wrong row length (3 of 4 values)', { status: 'INVALID', message: C.validateState({ ...A, alloc: [[1,2,0], ...A.alloc.slice(1)] })[0] }, 'invalid']];
+  const row = (id, sc, st, res, an) => `<tr><td>${id}</td><td style="text-align:left">${sc}</td><td>${badge(st)}</td><td style="text-align:left">${res}</td><td style="text-align:left">${an}</td></tr>`;
+  return `<h1>Scenario Lab — TC1 to TC6</h1><p class="lead">Computed live by the same functions used in the other modules. Nothing on this page is hard-coded.</p>
+<div class="card"><table style="width:100%"><tr><th>ID</th><th>Scenario</th><th>Status</th><th>Actual result</th><th>Why</th></tr>
+${row('TC1', 'Safe state', s1.safe ? 'SAFE' : 'UNSAFE', 'Sequence ' + seq(s1.sequence) + ', final Work ' + F(s1.finalWork), 'Each Need ≤ Work in turn.')}
+${row('TC2', 'P0 requests ' + F(P.tc2.req), r2.status, esc(r2.message), 'Request ≤ Need but &gt; Available: valid, deferred.')}
+${row('TC3', 'P3 requests ' + F(P.tc3.req), r3.status, 'Simulated Available ' + F(r3.sim.avail) + '; no process can finish. Original restored.', 'Within Need and Available, but unsafe → deny.')}
+${row('TC4', 'Detection (multi-instance)', d.deadlock ? 'DEADLOCK' : 'NODEADLOCK', '{' + d.deadlocked.map(i => 'P' + i) + '}; terminate P' + bv + ' → ' + (da.deadlock ? 'still deadlocked' : 'no deadlock, order ' + da.order.map(i => 'P' + i).join(',')), 'Matrix method, not cycle-only.')}
+${row('TC5', 'Prevention', dp.deadlock ? 'DEADLOCK' : 'NODEADLOCK', 'Ordering rejects ' + ap.violations.length + ' out-of-order requests; all-or-nothing starts ' + ao.started.length + ' of 5.', 'Circular wait / hold-and-wait removed; concurrency drops.')}
+</table></div>
+<div class="card"><h2 style="margin-top:0">TC6 — Boundary and invalid inputs</h2><table style="width:100%"><tr><th>#</th><th>Input</th><th>Status</th><th>Message</th><th>Class</th></tr>${six.map((x, i) => `<tr><td>F${i + 1}</td><td style="text-align:left">${x[0]}</td><td>${badge(x[1].status)}</td><td style="text-align:left">${esc(x[1].message)}</td><td>${x[2]}</td></tr>`).join('')}</table>
+<div class="note">Valid boundary cases (zero Available, zero request, zero Need) are processed normally. Only rule-breaking input is INVALID, and invalid operations never change the stored state.</div></div>`;
+};
+route();
+</script>
+</body>
+</html>
